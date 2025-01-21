@@ -43,7 +43,7 @@ Sub ProcessMachineTimes()
             ' Initialize dictionary to store times for each category
             Set machineTimes = CreateObject("Scripting.Dictionary")
             For Each category In machineCategories.Keys
-                machineTimes.Add category, Array()
+                machineTimes.Add category, New Collection
             Next category
             
             ' Loop through the columns
@@ -56,7 +56,7 @@ Sub ProcessMachineTimes()
                     If InStr(1, machineName, machineCategories(category), vbTextCompare) > 0 Then
                         ' Convert time to Excel time if valid
                         If IsDate("00:" & timeValue) Then
-                            machineTimes(category) = Application.Union(machineTimes(category), Array(CDate("00:" & timeValue)))
+                            machineTimes(category).Add CDate("00:" & timeValue)
                         End If
                         Exit For
                     End If
@@ -65,7 +65,7 @@ Sub ProcessMachineTimes()
             
             ' Calculate min and max times for each category
             For Each category In machineCategories.Keys
-                If Not IsEmpty(machineTimes(category)) Then
+                If machineTimes(category).Count > 0 Then
                     minTime = Application.Min(machineTimes(category))
                     maxTime = Application.Max(machineTimes(category))
                     ' Write results to the report
