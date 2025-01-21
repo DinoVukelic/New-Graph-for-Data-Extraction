@@ -5,7 +5,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim machineCategories As Object
     Dim colStart As Long, colEnd As Long
     Dim i As Long
-    Dim machineName As String
+    Dim machineName As Variant
     Dim cleanMachineName As String
     Dim timeValue As Variant
     Dim category As Variant
@@ -20,7 +20,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     machineCategories.Add "VDIST", "VDIST"
     machineCategories.Add "VIRTPPC", "VIRTPPC"
 
-    ' Create a new sheet for the report
+    ' Create or clear the "Machine Times Report" sheet
     On Error Resume Next
     Set reportWs = ThisWorkbook.Sheets("Machine Times Report")
     If reportWs Is Nothing Then
@@ -29,11 +29,10 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     End If
     On Error GoTo 0
 
-    ' Clear the sheet and add headers one by one
     reportWs.Cells.Clear
     reportWs.Cells(1, 1).Value = "Machine Category"
-    reportWs.Cells(1, 2).Value = "Min Time (mm:ss)"
-    reportWs.Cells(1, 3).Value = "Max Time (mm:ss)"
+    reportWs.Cells(1, 2).Value = "Min Time (hh:mm:ss)"
+    reportWs.Cells(1, 3).Value = "Max Time (hh:mm:ss)"
     reportWs.Cells(1, 4).Value = "Sheet Name"
     reportRow = 2
 
@@ -55,46 +54,46 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
 
             ' Loop through the columns
             For i = colStart To colEnd
-                ' Process visible cells
+                ' Read values from the sheet
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
 
                 ' Debug: Log the cell values
                 Debug.Print "Processing column: " & i & ", Machine Name: " & machineName & ", Time: " & timeValue
 
-                ' Skip empty or invalid machine names
-                If IsEmpty(machineName) Then
-                    Debug.Print "Skipping column " & i & " due to empty machine name."
+                ' Skip columns if the machine name is error or empty
+                If IsError(machineName) Or IsEmpty(machineName) Then
+                    Debug.Print "Skipping column " & i & " due to empty/error machine name."
                     GoTo SkipColumn
                 End If
 
                 ' Extract the base machine name
-                cleanMachineName = ExtractMachineName(machineName)
+                cleanMachineName = ExtractMachineName(CStr(machineName))
                 If cleanMachineName = "" Then
-                    Debug.Print "Skipping column " & i & " due to invalid machine name: " & machineName
+                    Debug.Print "Skipping column " & i & " (invalid machine name): " & machineName
                     GoTo SkipColumn
                 End If
 
-                ' Skip invalid or empty time values
-                If IsEmpty(timeValue) Or Not IsDate(timeValue) Then
-                    Debug.Print "Skipping column " & i & " due to invalid or empty time value: " & timeValue
+                ' Skip columns if time value is error, empty, or not a date
+                If IsError(timeValue) Or IsEmpty(timeValue) Or Not IsDate(timeValue) Then
+                    Debug.Print "Skipping column " & i & " (invalid/empty time): " & timeValue
                     GoTo SkipColumn
                 End If
 
-                ' Check if the machine name matches any category
+                ' Add the time to the correct category if matched
                 For Each category In machineCategories.Keys
                     If cleanMachineName = machineCategories(category) Then
-                        ' Add the time to the category
                         On Error Resume Next
                         machineTimes(category).Add CDate(timeValue)
                         On Error GoTo 0
                         Exit For
                     End If
                 Next category
+
 SkipColumn:
             Next i
 
-            ' Calculate min and max times for each category
+            ' Calculate min/max times for each category found on this sheet
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
                     ' Convert the collection to an array
@@ -116,7 +115,6 @@ SkipColumn:
                 End If
             Next category
         End If
-SkipSheet:
     Next ws
 
     ' Autofit columns in the report
@@ -125,12 +123,13 @@ SkipSheet:
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet.", vbInformation
 End Sub
 
-' Function to extract the base machine name (e.g., "VIRTIXEN" from "VIRTIXEN630S")
+' Extracts the base machine name (e.g., "VIRTIXEN" from "VIRTIXEN630S")
 Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
     regex.Global = False
     regex.Pattern = "^(VIRTIXEN|VDIST|VIRTPPC)"
+    
     If regex.Test(inputString) Then
         ExtractMachineName = regex.Execute(inputString)(0)
     Else
