@@ -56,12 +56,12 @@ Sub ProcessAllSheets()
                 ' Check if the machine name matches any category
                 For Each category In machineCategories.Keys
                     If InStr(1, cleanMachineName, machineCategories(category), vbTextCompare) > 0 Then
-                        ' Validate and add the time
-                        On Error Resume Next
-                        If IsDate("00:" & timeValue) Then
+                        ' Validate and add the time if it's in a valid format
+                        If IsNumeric(TimeValue("00:" & timeValue)) Then
+                            On Error Resume Next
                             machineTimes(category).Add CDate("00:" & timeValue)
+                            On Error GoTo 0
                         End If
-                        On Error GoTo 0
                         Exit For
                     End If
                 Next category
