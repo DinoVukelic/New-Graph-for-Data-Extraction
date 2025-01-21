@@ -1,17 +1,20 @@
+Option Explicit
+
 Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim ws As Worksheet
     Dim reportWs As Worksheet
-    Dim machineTimes As Object
-    Dim machineCategories As Object
+    Dim machineTimes As Object      ' Dictionary: category => Collection of Double
+    Dim machineCategories As Object ' Dictionary: category => "VIRTIXEN"/"VDIST"/"VIRTPPC"
     Dim colStart As Long, colEnd As Long
     Dim i As Long
     Dim machineName As Variant
     Dim cleanMachineName As String
     Dim timeValue As Variant
     Dim category As Variant
-    Dim minTime As Date, maxTime As Date
+    Dim minTime As Double
+    Dim maxTime As Double
     Dim reportRow As Long
-    Dim timeArray() As Date
+    Dim timeArray() As Double
     Dim timeIndex As Long
 
     ' Initialize machine categories
@@ -46,7 +49,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             colStart = ws.Columns("H").Column ' Start at column H
             colEnd = ws.Columns("BQ").Column ' End at column BQ
 
-            ' Initialize dictionary to store times for each category
+            ' Initialize dictionary to store times (as doubles) for each category
             Set machineTimes = CreateObject("Scripting.Dictionary")
             For Each category In machineCategories.Keys
                 machineTimes.Add category, New Collection
@@ -54,38 +57,51 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
 
             ' Loop through the columns
             For i = colStart To colEnd
-                ' Read values from the sheet
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
 
                 ' Debug: Log the cell values
-                Debug.Print "Processing column: " & i & ", Machine Name: " & machineName & ", Time: " & timeValue
+                Debug.Print "Processing column: " & i & _
+                            ", Machine Name: " & machineName & _
+                            ", Time: " & timeValue
 
-                ' Skip columns if the machine name is error or empty
+                ' 1) Skip if machine name is an error or empty
                 If IsError(machineName) Or IsEmpty(machineName) Then
-                    Debug.Print "Skipping column " & i & " due to empty/error machine name."
+                    Debug.Print "Skipping column " & i & " (empty or error machine name)."
                     GoTo SkipColumn
                 End If
 
-                ' Extract the base machine name
+                ' 2) Clean machine name
                 cleanMachineName = ExtractMachineName(CStr(machineName))
                 If cleanMachineName = "" Then
-                    Debug.Print "Skipping column " & i & " (invalid machine name): " & machineName
+                    Debug.Print "Skipping column " & i & " (no valid machine prefix)."
                     GoTo SkipColumn
                 End If
 
-                ' Skip columns if time value is error, empty, or not a date
+                ' 3) Skip if timeValue is error, empty, or not a date/time
                 If IsError(timeValue) Or IsEmpty(timeValue) Or Not IsDate(timeValue) Then
-                    Debug.Print "Skipping column " & i & " (invalid/empty time): " & timeValue
+                    Debug.Print "Skipping column " & i & " (invalid or empty time)."
                     GoTo SkipColumn
                 End If
 
-                ' Add the time to the correct category if matched
+                ' 4) If it passes all checks, store as a Double
+                '    (Excel internally stores times as fraction-of-a-day (Double).)
+                Dim numericTime As Double
+                On Error Resume Next
+                numericTime = CDbl(timeValue)
+                On Error GoTo 0
+
+                ' If that conversion fails, skip it
+                If numericTime = 0 And CStr(timeValue) <> "0" Then
+                    Debug.Print "Skipping column " & i & _
+                                " (CDbl conversion returned 0 but wasn't explicitly '0')."
+                    GoTo SkipColumn
+                End If
+
+                ' 5) Check if the machine name matches any category; add numericTime
                 For Each category In machineCategories.Keys
                     If cleanMachineName = machineCategories(category) Then
-                        On Error Resume Next
-                        machineTimes(category).Add CDate(timeValue)
-                        On Error GoTo 0
+                        machineTimes(category).Add numericTime
                         Exit For
                     End If
                 Next category
@@ -93,10 +109,10 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
 SkipColumn:
             Next i
 
-            ' Calculate min/max times for each category found on this sheet
+            ' Calculate min & max times for each category
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
-                    ' Convert the collection to an array
+                    ' Convert the collection to an array of Doubles
                     ReDim timeArray(1 To machineTimes(category).Count)
                     For timeIndex = 1 To machineTimes(category).Count
                         timeArray(timeIndex) = machineTimes(category).Item(timeIndex)
@@ -106,7 +122,7 @@ SkipColumn:
                     minTime = Application.Min(timeArray)
                     maxTime = Application.Max(timeArray)
 
-                    ' Write results to the report
+                    ' Write results to the report (formatted as hh:mm:ss)
                     reportWs.Cells(reportRow, 1).Value = category
                     reportWs.Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
                     reportWs.Cells(reportRow, 3).Value = Format(maxTime, "hh:mm:ss")
