@@ -73,6 +73,11 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
                 
+                 Debug.Print "Column " & i & _
+                " | MachineName='" & thisName & "'" & _
+                " => Extracted='" & ExtractMachineName(thisName) & "'" & _
+                " | Row14='" & thisTime & "'"
+                
                 ' First, skip if machineName is empty/error
                 If Not IsError(machineName) And Not IsEmpty(machineName) Then
                     ' Try to extract the base name (e.g. "VIRTPPC" from "VIRTPPC675S")
