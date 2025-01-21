@@ -50,6 +50,11 @@ Sub ProcessAllSheets()
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
                 
+                ' Ignore empty machine names and times
+                If IsEmpty(machineName) Or IsEmpty(timeValue) Then
+                    GoTo SkipColumn
+                End If
+                
                 ' Strip numbers from the machine name
                 cleanMachineName = RemoveNumbers(machineName)
                 
@@ -57,14 +62,15 @@ Sub ProcessAllSheets()
                 For Each category In machineCategories.Keys
                     If InStr(1, cleanMachineName, machineCategories(category), vbTextCompare) > 0 Then
                         ' Validate and add the time if it's in a valid format
-                        If IsNumeric(TimeValue("00:" & timeValue)) Then
-                            On Error Resume Next
+                        On Error Resume Next
+                        If IsDate("00:" & timeValue) Then
                             machineTimes(category).Add CDate("00:" & timeValue)
-                            On Error GoTo 0
                         End If
+                        On Error GoTo 0
                         Exit For
                     End If
                 Next category
+SkipColumn:
             Next i
             
             ' Calculate min and max times for each category
