@@ -1,4 +1,4 @@
-Sub ProcessAllSheets()
+Sub ProcessAllSheetsDebug()
     Dim ws As Worksheet
     Dim reportWs As Worksheet
     Dim machineTimes As Object
@@ -50,22 +50,29 @@ Sub ProcessAllSheets()
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
                 
+                ' Debug: Log column and cell values
+                Debug.Print "Processing column: " & i & ", Machine Name: " & machineName & ", Time: " & timeValue
+                
                 ' Ignore empty machine names and times
                 If IsEmpty(machineName) Or IsEmpty(timeValue) Then
+                    Debug.Print "Skipping column " & i & " due to empty value."
                     GoTo SkipColumn
                 End If
                 
                 ' Extract the base machine name
                 cleanMachineName = ExtractMachineName(machineName)
+                Debug.Print "Extracted Machine Name: " & cleanMachineName
                 
                 ' Check if the machine name matches any category
                 For Each category In machineCategories.Keys
                     If cleanMachineName = machineCategories(category) Then
-                        ' Validate and process the time (convert to mm:ss format)
+                        ' Validate and process the time
                         If IsDate(timeValue) Then
                             On Error Resume Next
                             machineTimes(category).Add TimeValueToMinutesSeconds(timeValue)
                             On Error GoTo 0
+                        Else
+                            Debug.Print "Invalid time format in column " & i & ": " & timeValue
                         End If
                         Exit For
                     End If
