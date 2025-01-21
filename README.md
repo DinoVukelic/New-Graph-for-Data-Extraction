@@ -13,13 +13,13 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim reportRow As Long
     Dim timeArray() As Date
     Dim timeIndex As Long
-    
+
     ' Initialize machine categories
     Set machineCategories = CreateObject("Scripting.Dictionary")
     machineCategories.Add "VIRTIXEN", "VIRTIXEN"
     machineCategories.Add "VDIST", "VDIST"
     machineCategories.Add "VIRTPPC", "VIRTPPC"
-    
+
     ' Create a new sheet for the report
     On Error Resume Next
     Set reportWs = ThisWorkbook.Sheets("Machine Times Report")
@@ -31,63 +31,51 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     reportWs.Cells.Clear
     reportWs.Range("A1:D1").Value = Array("Machine Category", "Min Time (mm:ss)", "Max Time (mm:ss)", "Sheet Name")
     reportRow = 2
-    
+
     ' Process each sheet matching the pattern
     For Each ws In ThisWorkbook.Sheets
         Debug.Print "Processing sheet: " & ws.Name
         If ws.Name Like "*_BBM_Export_Timings" Then
             Debug.Print "Matched sheet: " & ws.Name
-            
-            ' Check if row 14 is visible
-            If ws.Rows(14).Hidden Then
-                Debug.Print "Skipping sheet " & ws.Name & " because row 14 is hidden."
-                GoTo SkipSheet
-            End If
-            
-            ' Get the start and end columns for the data
-            colStart = 8 ' H column
-            colEnd = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
-            
+
+            ' Define start and end columns explicitly
+            colStart = ws.Columns("H").Column ' Start at column H
+            colEnd = ws.Columns("BQ").Column ' End at column BQ
+
             ' Initialize dictionary to store times for each category
             Set machineTimes = CreateObject("Scripting.Dictionary")
             For Each category In machineCategories.Keys
                 machineTimes.Add category, New Collection
             Next category
-            
-            ' Loop through the columns, skipping hidden ones
+
+            ' Loop through the columns
             For i = colStart To colEnd
-                ' Check if the column is hidden
-                If ws.Columns(i).Hidden Then
-                    Debug.Print "Skipping hidden column: " & i
-                    GoTo SkipColumn
-                End If
-                
-                ' Process visible columns
+                ' Process visible cells
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
-                
-                ' Debug: Log column and cell values
+
+                ' Debug: Log the cell values
                 Debug.Print "Processing column: " & i & ", Machine Name: " & machineName & ", Time: " & timeValue
-                
+
                 ' Skip empty or invalid machine names
                 If IsEmpty(machineName) Then
                     Debug.Print "Skipping column " & i & " due to empty machine name."
                     GoTo SkipColumn
                 End If
-                
+
                 ' Extract the base machine name
                 cleanMachineName = ExtractMachineName(machineName)
                 If cleanMachineName = "" Then
                     Debug.Print "Skipping column " & i & " due to invalid machine name: " & machineName
                     GoTo SkipColumn
                 End If
-                
+
                 ' Skip invalid time values
                 If IsEmpty(timeValue) Or Not IsNumeric(timeValue) And Not IsDate(timeValue) Then
                     Debug.Print "Skipping column " & i & " due to invalid or empty time value: " & timeValue
                     GoTo SkipColumn
                 End If
-                
+
                 ' Check if the machine name matches any category
                 For Each category In machineCategories.Keys
                     If cleanMachineName = machineCategories(category) Then
@@ -100,7 +88,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                 Next category
 SkipColumn:
             Next i
-            
+
             ' Calculate min and max times for each category
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
@@ -109,11 +97,11 @@ SkipColumn:
                     For timeIndex = 1 To machineTimes(category).Count
                         timeArray(timeIndex) = machineTimes(category).Item(timeIndex)
                     Next timeIndex
-                    
+
                     ' Calculate min and max times
                     minTime = Application.Min(timeArray)
                     maxTime = Application.Max(timeArray)
-                    
+
                     ' Write results to the report
                     reportWs.Cells(reportRow, 1).Value = category
                     reportWs.Cells(reportRow, 2).Value = Format(minTime, "mm:ss")
@@ -125,10 +113,10 @@ SkipColumn:
         End If
 SkipSheet:
     Next ws
-    
+
     ' Autofit columns in the report
     reportWs.Columns.AutoFit
-    
+
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet.", vbInformation
 End Sub
 
