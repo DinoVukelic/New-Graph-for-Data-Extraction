@@ -66,11 +66,11 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             
             '---------------------------------------------
             ' 4) Columns H to BQ → col 8 to col 69
-            '    Row 1 → machine name
+            '    Row 7 → machine name
             '    Row 14 → time value
             '---------------------------------------------
             For i = 8 To 69  ' 8=H, 69=BQ
-                machineName = ws.Cells(1, i).Value
+                machineName = ws.Cells(7, i).Value
                 timeValue = ws.Cells(14, i).Value
 
                 Dim thisName As String, thisTime As String
