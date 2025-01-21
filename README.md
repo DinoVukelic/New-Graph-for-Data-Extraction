@@ -11,6 +11,8 @@ Sub ProcessMachineTimes()
     Dim minTime As Date, maxTime As Date
     Dim reportWs As Worksheet
     Dim reportRow As Long
+    Dim timeArray() As Date
+    Dim timeIndex As Long
     
     ' Initialize machine categories
     Set machineCategories = CreateObject("Scripting.Dictionary")
@@ -66,8 +68,16 @@ Sub ProcessMachineTimes()
             ' Calculate min and max times for each category
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
-                    minTime = Application.Min(machineTimes(category))
-                    maxTime = Application.Max(machineTimes(category))
+                    ' Convert the collection to an array
+                    ReDim timeArray(1 To machineTimes(category).Count)
+                    For timeIndex = 1 To machineTimes(category).Count
+                        timeArray(timeIndex) = machineTimes(category).Item(timeIndex)
+                    Next timeIndex
+                    
+                    ' Calculate min and max times
+                    minTime = Application.Min(timeArray)
+                    maxTime = Application.Max(timeArray)
+                    
                     ' Write results to the report
                     reportWs.Cells(reportRow, 1).Value = category
                     reportWs.Cells(reportRow, 2).Value = Format(minTime, "mm:ss")
