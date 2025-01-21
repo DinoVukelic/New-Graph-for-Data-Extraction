@@ -29,7 +29,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     End If
     On Error GoTo 0
 
-    ' Clear the sheet and add headers row by row
+    ' Clear the sheet and add headers one by one
     reportWs.Cells.Clear
     reportWs.Cells(1, 1).Value = "Machine Category"
     reportWs.Cells(1, 2).Value = "Min Time (mm:ss)"
