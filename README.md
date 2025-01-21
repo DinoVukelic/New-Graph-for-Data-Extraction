@@ -56,10 +56,12 @@ Sub ProcessMachineTimes()
                 ' Check if machine name matches any category
                 For Each category In machineCategories.Keys
                     If InStr(1, machineName, machineCategories(category), vbTextCompare) > 0 Then
-                        ' Convert time to Excel time if valid
+                        ' Validate time and add to the collection
+                        On Error Resume Next
                         If IsDate("00:" & timeValue) Then
                             machineTimes(category).Add CDate("00:" & timeValue)
                         End If
+                        On Error GoTo 0
                         Exit For
                     End If
                 Next category
