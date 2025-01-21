@@ -34,10 +34,19 @@ Sub ProcessAllSheetsDebug()
     
     ' Process each sheet matching the pattern
     For Each ws In ThisWorkbook.Sheets
+        Debug.Print "Processing sheet: " & ws.Name ' Log sheet name
         If ws.Name Like "*_BBM_Export_Timings" Then
+            Debug.Print "Matched sheet: " & ws.Name
+            
+            ' Validate that the sheet contains required data
+            If ws.Cells(1, 8).Value = "" Or ws.Cells(14, 8).Value = "" Then
+                Debug.Print "Skipping sheet " & ws.Name & " due to missing data in H1 or H14."
+                GoTo SkipSheet
+            End If
+            
             ' Get the start and end columns for the data
-            colStart = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
-            colEnd = ws.Cells(1, 1).End(xlToRight).Column
+            colStart = 8 ' H column
+            colEnd = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
             
             ' Initialize dictionary to store times for each category
             Set machineTimes = CreateObject("Scripting.Dictionary")
@@ -102,6 +111,7 @@ SkipColumn:
                 End If
             Next category
         End If
+SkipSheet:
     Next ws
     
     ' Autofit columns in the report
