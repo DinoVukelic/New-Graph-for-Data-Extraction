@@ -72,7 +72,8 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             For i = 8 To 69  ' 8=H, 69=BQ
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
-                
+
+                Dim thisName As String, thisTime As String
                  Debug.Print "Column " & i & _
                 " | MachineName='" & thisName & "'" & _
                 " => Extracted='" & ExtractMachineName(thisName) & "'" & _
