@@ -70,8 +70,8 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     GoTo SkipColumn
                 End If
 
-                ' Skip invalid time values
-                If IsEmpty(timeValue) Or Not IsNumeric(timeValue) And Not IsDate(timeValue) Then
+                ' Skip invalid or empty time values
+                If IsEmpty(timeValue) Or Not IsDate(timeValue) Then
                     Debug.Print "Skipping column " & i & " due to invalid or empty time value: " & timeValue
                     GoTo SkipColumn
                 End If
@@ -81,7 +81,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     If cleanMachineName = machineCategories(category) Then
                         ' Add the time to the category
                         On Error Resume Next
-                        machineTimes(category).Add TimeValueToMinutesSeconds(timeValue)
+                        machineTimes(category).Add CDate(timeValue)
                         On Error GoTo 0
                         Exit For
                     End If
@@ -104,8 +104,8 @@ SkipColumn:
 
                     ' Write results to the report
                     reportWs.Cells(reportRow, 1).Value = category
-                    reportWs.Cells(reportRow, 2).Value = Format(minTime, "mm:ss")
-                    reportWs.Cells(reportRow, 3).Value = Format(maxTime, "mm:ss")
+                    reportWs.Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
+                    reportWs.Cells(reportRow, 3).Value = Format(maxTime, "hh:mm:ss")
                     reportWs.Cells(reportRow, 4).Value = ws.Name
                     reportRow = reportRow + 1
                 End If
