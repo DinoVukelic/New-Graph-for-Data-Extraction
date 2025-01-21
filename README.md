@@ -7,7 +7,7 @@ Sub ProcessMachineTimes()
     Dim i As Long
     Dim machineName As String
     Dim timeValue As Variant
-    Dim category As String
+    Dim category As Variant ' Ensure category is declared as Variant
     Dim minTime As Date, maxTime As Date
     Dim reportWs As Worksheet
     Dim reportRow As Long
