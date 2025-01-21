@@ -55,18 +55,18 @@ Sub ProcessAllSheets()
                     GoTo SkipColumn
                 End If
                 
-                ' Strip numbers from the machine name
-                cleanMachineName = RemoveNumbers(machineName)
+                ' Extract the base machine name
+                cleanMachineName = ExtractMachineName(machineName)
                 
                 ' Check if the machine name matches any category
                 For Each category In machineCategories.Keys
-                    If InStr(1, cleanMachineName, machineCategories(category), vbTextCompare) > 0 Then
-                        ' Validate and add the time if it's in a valid format
-                        On Error Resume Next
-                        If IsDate("00:" & timeValue) Then
-                            machineTimes(category).Add CDate("00:" & timeValue)
+                    If cleanMachineName = machineCategories(category) Then
+                        ' Validate and process the time (convert to mm:ss format)
+                        If IsDate(timeValue) Then
+                            On Error Resume Next
+                            machineTimes(category).Add TimeValueToMinutesSeconds(timeValue)
+                            On Error GoTo 0
                         End If
-                        On Error GoTo 0
                         Exit For
                     End If
                 Next category
@@ -103,11 +103,32 @@ SkipColumn:
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet.", vbInformation
 End Sub
 
-' Function to remove numbers from machine names
-Function RemoveNumbers(ByVal inputString As String) As String
+' Function to extract the base machine name (e.g., "VIRTIXEN" from "VIRTIXEN630S")
+Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
-    regex.Global = True
-    regex.Pattern = "[0-9]"
-    RemoveNumbers = regex.Replace(inputString, "")
+    regex.Global = False
+    regex.Pattern = "^(VIRTIXEN|VDIST|VIRTPPC)"
+    If regex.Test(inputString) Then
+        ExtractMachineName = regex.Execute(inputString)(0)
+    Else
+        ExtractMachineName = ""
+    End If
+End Function
+
+' Function to convert time values to mm:ss format
+Function TimeValueToMinutesSeconds(ByVal timeValue As Variant) As Date
+    Dim totalSeconds As Double
+    Dim minutes As Long
+    Dim seconds As Long
+
+    ' Calculate total seconds
+    totalSeconds = timeValue * 86400 ' Convert Excel time to total seconds
+
+    ' Extract minutes and seconds
+    minutes = Int(totalSeconds / 60)
+    seconds = totalSeconds Mod 60
+
+    ' Return as mm:ss
+    TimeValueToMinutesSeconds = TimeSerial(0, minutes, seconds)
 End Function
