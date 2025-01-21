@@ -28,8 +28,13 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         reportWs.Name = "Machine Times Report"
     End If
     On Error GoTo 0
+
+    ' Clear the sheet and add headers row by row
     reportWs.Cells.Clear
-    reportWs.Range("A1:D1").Value = Array("Machine Category", "Min Time (mm:ss)", "Max Time (mm:ss)", "Sheet Name")
+    reportWs.Cells(1, 1).Value = "Machine Category"
+    reportWs.Cells(1, 2).Value = "Min Time (mm:ss)"
+    reportWs.Cells(1, 3).Value = "Max Time (mm:ss)"
+    reportWs.Cells(1, 4).Value = "Sheet Name"
     reportRow = 2
 
     ' Process each sheet matching the pattern
@@ -131,28 +136,4 @@ Function ExtractMachineName(ByVal inputString As String) As String
     Else
         ExtractMachineName = ""
     End If
-End Function
-
-' Function to convert time values to mm:ss format
-Function TimeValueToMinutesSeconds(ByVal timeValue As Variant) As Date
-    Dim totalSeconds As Double
-    Dim minutes As Long
-    Dim seconds As Long
-
-    ' Handle cases where time is already in a valid Excel time format
-    If IsDate(timeValue) Then
-        totalSeconds = CDbl(CDate(timeValue)) * 86400
-    ElseIf IsNumeric(timeValue) Then
-        totalSeconds = timeValue * 86400
-    Else
-        TimeValueToMinutesSeconds = 0
-        Exit Function
-    End If
-
-    ' Extract minutes and seconds
-    minutes = Int(totalSeconds / 60)
-    seconds = totalSeconds Mod 60
-
-    ' Return as mm:ss
-    TimeValueToMinutesSeconds = TimeSerial(0, minutes, seconds)
 End Function
