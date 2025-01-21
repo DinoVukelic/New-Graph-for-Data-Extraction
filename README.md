@@ -1,15 +1,15 @@
-Sub ProcessMachineTimes()
+Sub ProcessAllSheets()
     Dim ws As Worksheet
+    Dim reportWs As Worksheet
     Dim machineTimes As Object
-    Dim sheetPattern As String
     Dim machineCategories As Object
     Dim colStart As Long, colEnd As Long
     Dim i As Long
     Dim machineName As String
+    Dim cleanMachineName As String
     Dim timeValue As Variant
-    Dim category As Variant ' Ensure category is declared as Variant
+    Dim category As Variant
     Dim minTime As Date, maxTime As Date
-    Dim reportWs As Worksheet
     Dim reportRow As Long
     Dim timeArray() As Date
     Dim timeIndex As Long
@@ -19,9 +19,6 @@ Sub ProcessMachineTimes()
     machineCategories.Add "VIRTIXEN", "VIRTIXEN"
     machineCategories.Add "VDIST", "VDIST"
     machineCategories.Add "VIRTPPC", "VIRTPPC"
-    
-    ' Initialize sheet name pattern
-    sheetPattern = "*_BBM_Export_Timings"
     
     ' Create a new sheet for the report
     On Error Resume Next
@@ -35,9 +32,9 @@ Sub ProcessMachineTimes()
     reportWs.Range("A1:D1").Value = Array("Machine Category", "Min Time (mm:ss)", "Max Time (mm:ss)", "Sheet Name")
     reportRow = 2
     
-    ' Process each sheet
+    ' Process each sheet matching the pattern
     For Each ws In ThisWorkbook.Sheets
-        If ws.Name Like sheetPattern Then
+        If ws.Name Like "*_BBM_Export_Timings" Then
             ' Get the start and end columns for the data
             colStart = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
             colEnd = ws.Cells(1, 1).End(xlToRight).Column
@@ -53,10 +50,13 @@ Sub ProcessMachineTimes()
                 machineName = ws.Cells(1, i).Value
                 timeValue = ws.Cells(14, i).Value
                 
-                ' Check if machine name matches any category
+                ' Strip numbers from the machine name
+                cleanMachineName = RemoveNumbers(machineName)
+                
+                ' Check if the machine name matches any category
                 For Each category In machineCategories.Keys
-                    If InStr(1, machineName, machineCategories(category), vbTextCompare) > 0 Then
-                        ' Validate time and add to the collection
+                    If InStr(1, cleanMachineName, machineCategories(category), vbTextCompare) > 0 Then
+                        ' Validate and add the time
                         On Error Resume Next
                         If IsDate("00:" & timeValue) Then
                             machineTimes(category).Add CDate("00:" & timeValue)
@@ -96,3 +96,12 @@ Sub ProcessMachineTimes()
     
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet.", vbInformation
 End Sub
+
+' Function to remove numbers from machine names
+Function RemoveNumbers(ByVal inputString As String) As String
+    Dim regex As Object
+    Set regex = CreateObject("VBScript.RegExp")
+    regex.Global = True
+    regex.Pattern = "[0-9]"
+    RemoveNumbers = regex.Replace(inputString, "")
+End Function
