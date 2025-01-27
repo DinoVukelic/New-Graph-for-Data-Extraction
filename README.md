@@ -89,7 +89,13 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     
                     If Len(cleanMachineName) > 0 And Len(timeValue) > 0 Then
                         On Error Resume Next
-                        numericTime = TimeValue(timeValue)
+                        ' Convert time value to Double
+                        If IsDate(timeValue) Then
+                            numericTime = CDbl(CDate(timeValue))
+                        Else
+                            numericTime = CDbl(CDate("1900-01-01 " & timeValue))
+                        End If
+                        
                         If Err.Number = 0 And numericTime > 0 Then
                             For Each category In machineCategories.Keys
                                 If cleanMachineName = machineCategories(category) Then
