@@ -22,7 +22,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim timeCollection As Collection
     
     Application.ScreenUpdating = False
-    On Error GoTo ErrorHandler
+    Application.Calculation = xlCalculationManual
     
     '---------------------------
     ' 1) Initialize categories
@@ -70,31 +70,42 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             Next category
             
             '---------------------------------------------
-            ' 4) Process columns H to BQ
+            ' 4) Process visible columns H to BQ
             '---------------------------------------------
             For i = 8 To 69  ' 8=H, 69=BQ
-                ' Get machine name
-                machineName = ""
-                If Not IsEmpty(ws.Cells(7, i)) Then
-                    cellValue = ws.Cells(7, i).Value
-                    If Not IsError(cellValue) Then
-                        machineName = Trim(CStr(cellValue))
+                ' Skip hidden columns
+                If Not ws.Columns(i).Hidden Then
+                    ' Get machine name from row 1
+                    machineName = ""
+                    On Error Resume Next
+                    If Not IsEmpty(ws.Cells(1, i)) Then
+                        cellValue = ws.Cells(1, i).Value
+                        If Not IsError(cellValue) Then
+                            machineName = Trim(CStr(cellValue))
+                        End If
                     End If
-                End If
-                
-                ' Process if we have a valid machine name
-                If Len(machineName) > 0 Then
-                    cleanMachineName = ExtractMachineName(machineName)
+                    On Error GoTo 0
                     
-                    If Len(cleanMachineName) > 0 Then
-                        ' Get time value
-                        If Not IsEmpty(ws.Cells(14, i)) Then
-                            cellValue = ws.Cells(14, i).Value
-                            
-                            If Not IsError(cellValue) Then
-                                If IsDate(cellValue) Then
-                                    ' For values Excel recognizes as dates
-                                    numericTime = CDbl(cellValue) - Int(CDbl(cellValue))
+                    ' Process if we have a valid machine name
+                    If Len(machineName) > 0 Then
+                        cleanMachineName = ExtractMachineName(machineName)
+                        
+                        If Len(cleanMachineName) > 0 Then
+                            ' Get time value from row 14
+                            On Error Resume Next
+                            If Not IsEmpty(ws.Cells(14, i)) Then
+                                cellValue = ws.Cells(14, i).Value
+                                
+                                ' Handle different time formats
+                                If Not IsError(cellValue) Then
+                                    If IsDate(cellValue) Then
+                                        numericTime = CDbl(cellValue)
+                                    ElseIf VarType(cellValue) = vbString Then
+                                        ' Try to parse time string
+                                        If InStr(cellValue, ":") > 0 Then
+                                            numericTime = TimeValue(cellValue)
+                                        End If
+                                    End If
                                     
                                     If numericTime > 0 Then
                                         For Each category In machineCategories.Keys
@@ -106,6 +117,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                                     End If
                                 End If
                             End If
+                            On Error GoTo 0
                         End If
                     End If
                 End If
@@ -121,9 +133,13 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     
                     ' Find min and max times
                     For i = 1 To machineTimes(category).Count
+                        On Error Resume Next
                         numericTime = machineTimes(category).Item(i)
-                        If numericTime < minTime Then minTime = numericTime
-                        If numericTime > maxTime Then maxTime = numericTime
+                        If Err.Number = 0 Then
+                            If numericTime < minTime Then minTime = numericTime
+                            If numericTime > maxTime Then maxTime = numericTime
+                        End If
+                        On Error GoTo 0
                     Next i
                     
                     ' Write to report
@@ -149,13 +165,9 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         End If
     End With
     
+    Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet."
-    Exit Sub
-
-ErrorHandler:
-    Application.ScreenUpdating = True
-    MsgBox "An error occurred: " & Err.Description
 End Sub
 
 Function ExtractMachineName(ByVal inputString As String) As String
