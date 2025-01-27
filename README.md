@@ -1,7 +1,6 @@
 Option Explicit
 
 Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
-
     Dim ws As Worksheet
     Dim reportWs As Worksheet
     
@@ -46,10 +45,12 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     End If
     
     ' Add headers
-    reportWs.Range("A1").Value = "Machine Category"
-    reportWs.Range("B1").Value = "Min Time (hh:mm:ss)"
-    reportWs.Range("C1").Value = "Max Time (hh:mm:ss)"
-    reportWs.Range("D1").Value = "Sheet Name"
+    With reportWs
+        .Range("A1").Value = "Machine Category"
+        .Range("B1").Value = "Min Time (hh:mm:ss)"
+        .Range("C1").Value = "Max Time (hh:mm:ss)"
+        .Range("D1").Value = "Sheet Name"
+    End With
     reportRow = 2
     
     '---------------------------------------------
@@ -65,49 +66,40 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             Next category
             
             '---------------------------------------------
-            ' 4) Columns H to BQ → col 8 to col 69
-            '    Row 7 → machine name
-            '    Row 14 → time value
+            ' 4) Process columns H to BQ
             '---------------------------------------------
             For i = 8 To 69  ' 8=H, 69=BQ
-                machineName = ws.Cells(7, i).Value
-                timeValue = ws.Cells(14, i).Value
-
-                Dim thisName As String, thisTime As String
-                 Debug.Print "Column " & i & _
-                " | MachineName='" & thisName & "'" & _
-                " => Extracted='" & ExtractMachineName(thisName) & "'" & _
-                " | Row14='" & thisTime & "'"
-                
-                ' First, skip if machineName is empty/error
-                If Not IsError(machineName) And Not IsEmpty(machineName) Then
-                    ' Try to extract the base name (e.g. "VIRTPPC" from "VIRTPPC675S")
-                    cleanMachineName = ExtractMachineName(CStr(machineName))
+                ' Use CStr to safely handle cell values
+                If Not IsEmpty(ws.Cells(7, i)) Then
+                    machineName = CStr(ws.Cells(7, i).Text)
                     
-                    If Len(cleanMachineName) > 0 Then
-                        ' Next, skip if timeValue is empty/error
-                        If Not IsError(timeValue) And Not IsEmpty(timeValue) Then
+                    If Not IsEmpty(ws.Cells(14, i)) Then
+                        timeValue = ws.Cells(14, i).Text
+                        
+                        ' Skip if machineName is empty
+                        If Len(machineName) > 0 Then
+                            ' Extract the base name
+                            cleanMachineName = ExtractMachineName(machineName)
                             
-                            ' Attempt to interpret it as a Date/Time
-                            If IsDate(timeValue) Then
-                                ' If Excel already sees it as a date/time
-                                numericTime = CDbl(CDate(timeValue))
-                            Else
-                                ' If "IsDate" fails, try TimeValue(...) in case it's text like "00:04:19"
+                            If Len(cleanMachineName) > 0 Then
+                                ' Handle time conversion with error checking
                                 On Error Resume Next
-                                numericTime = CDbl(TimeValue(CStr(timeValue)))
+                                If IsDate(timeValue) Then
+                                    numericTime = CDbl(TimeValue(CStr(timeValue)))
+                                Else
+                                    numericTime = CDbl(TimeValue(CStr(timeValue)))
+                                End If
                                 On Error GoTo 0
-                            End If
-                            
-                            ' If numericTime > 0, we assume we parsed a valid time
-                            If numericTime > 0 Then
-                                ' Add it to the proper category
-                                For Each category In machineCategories.Keys
-                                    If cleanMachineName = machineCategories(category) Then
-                                        machineTimes(category).Add numericTime
-                                        Exit For
-                                    End If
-                                Next category
+                                
+                                ' Only add valid times
+                                If numericTime > 0 Then
+                                    For Each category In machineCategories.Keys
+                                        If cleanMachineName = machineCategories(category) Then
+                                            machineTimes(category).Add numericTime
+                                            Exit For
+                                        End If
+                                    Next category
+                                End If
                             End If
                         End If
                     End If
@@ -115,29 +107,31 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             Next i
             
             '---------------------------------------------
-            ' 5) For each category, compute Min/Max
+            ' 5) Calculate and write min/max times
             '---------------------------------------------
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
-                    ' Convert the collection to a Double array
                     ReDim timeArray(1 To machineTimes(category).Count)
+                    
+                    ' Safely copy times to array
                     For timeIndex = 1 To machineTimes(category).Count
-                        timeArray(timeIndex) = machineTimes(category).Item(timeIndex)
+                        timeArray(timeIndex) = CDbl(machineTimes(category).Item(timeIndex))
                     Next timeIndex
                     
-                    ' Get min & max
-                    minTime = Application.Min(timeArray)
-                    maxTime = Application.Max(timeArray)
+                    ' Calculate min/max
+                    minTime = Application.WorksheetFunction.Min(timeArray)
+                    maxTime = Application.WorksheetFunction.Max(timeArray)
                     
-                    ' Write to report
-                    reportWs.Cells(reportRow, 1).Value = category
-                    reportWs.Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
-                    reportWs.Cells(reportRow, 3).Value = Format(maxTime, "hh:mm:ss")
-                    reportWs.Cells(reportRow, 4).Value = ws.Name
+                    ' Write to report with error handling
+                    With reportWs
+                        .Cells(reportRow, 1).Value = CStr(category)
+                        .Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
+                        .Cells(reportRow, 3).Value = Format(maxTime, "hh:mm:ss")
+                        .Cells(reportRow, 4).Value = ws.Name
+                    End With
                     reportRow = reportRow + 1
                 End If
             Next category
-            
         End If
     Next ws
     
@@ -146,13 +140,8 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     '---------------------------------------------
     reportWs.Columns.AutoFit
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet."
-    
 End Sub
 
-
-'================================================
-' ExtractMachineName: e.g. "VIRTPPC" from "VIRTPPC675S"
-'================================================
 Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
