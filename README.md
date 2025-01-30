@@ -178,15 +178,23 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     maxMinutes = maxTotalSec \ 60
                     maxSeconds = maxTotalSec Mod 60
                     
+                    ' Decide how to label the category in column A
+                    Dim categoryNameForReport As String
+                    If category = "VIRTPPC" Then
+                        categoryNameForReport = "Citrix - VIRTPPC"
+                    Else
+                        categoryNameForReport = category
+                    End If
+                    
                     ' Write "mm:ss" format with total minutes
                     With reportWs
-                        .Cells(reportRow, 1).Value = CStr(category)
+                        .Cells(reportRow, 1).Value = categoryNameForReport
                         .Cells(reportRow, 2).Value = CStr(minMinutes) & ":" & Format(minSeconds, "00")
                         .Cells(reportRow, 3).Value = CStr(maxMinutes) & ":" & Format(maxSeconds, "00")
                         .Cells(reportRow, 4).Value = ws.Name
                     End With
                     
-                    Debug.Print "==> " & ws.Name & ", Category=" & CStr(category) & _
+                    Debug.Print "==> " & ws.Name & ", Category=" & category & _
                                 ", Min=" & minMinutes & ":" & Format(minSeconds, "00") & _
                                 ", Max=" & maxMinutes & ":" & Format(maxSeconds, "00")
                     
@@ -201,16 +209,16 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     '---------------------------------------------
     ' 6) Format the report
     '---------------------------------------------
-With reportWs
-    .Columns.AutoFit
-    If reportRow > 2 Then
-        .Range("A1:D" & reportRow - 1).Borders.LineStyle = xlContinuous
-    End If
-    
-    ' Align columns B & C to the left, and column D to center
-    .Range("B:C").HorizontalAlignment = xlHAlignLeft
-    .Range("D:D").HorizontalAlignment = xlHAlignCenter
-End With
+    With reportWs
+        .Columns.AutoFit
+        If reportRow > 2 Then
+            .Range("A1:D" & reportRow - 1).Borders.LineStyle = xlContinuous
+        End If
+        
+        ' Align columns B & C to the left, and column D to center
+        .Range("B:C").HorizontalAlignment = xlHAlignLeft
+        .Range("D:D").HorizontalAlignment = xlHAlignCenter
+    End With
     
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
