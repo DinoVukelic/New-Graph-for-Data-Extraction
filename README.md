@@ -60,10 +60,15 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     ' 3) Loop each sheet named "*_BBM_Export_Timings"
     '---------------------------------------------
     For Each ws In ThisWorkbook.Sheets
-        If ws.Name Like "*_BBM_Export_Timings" Then
-            
+    
+        ' We check that the name matches "*_BBM_Export_Timings"
+        ' AND also is NOT equal to either "DD_MM_BBM_Export_Timings" or "DD_MM_BBS_Export_Timings"
+        If (ws.Name Like "*_BBM_Export_Timings") _
+           And (ws.Name <> "DD_MM_BBM_Export_Timings") _
+           And (ws.Name <> "DD_MM_BBS_Export_Timings") Then
+           
             Debug.Print vbNewLine & ">>> Processing sheet: " & ws.Name
-            
+        
             ' Create a new dictionary for times
             Set machineTimes = CreateObject("Scripting.Dictionary")
             For Each category In machineCategories.Keys
