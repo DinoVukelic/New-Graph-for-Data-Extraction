@@ -201,12 +201,16 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     '---------------------------------------------
     ' 6) Format the report
     '---------------------------------------------
-    With reportWs
-        .Columns.AutoFit
-        If reportRow > 2 Then
-            .Range("A1:D" & reportRow - 1).Borders.LineStyle = xlContinuous
-        End If
-    End With
+With reportWs
+    .Columns.AutoFit
+    If reportRow > 2 Then
+        .Range("A1:D" & reportRow - 1).Borders.LineStyle = xlContinuous
+    End If
+    
+    ' Align columns B & C to the left, and column D to center
+    .Range("B:C").HorizontalAlignment = xlHAlignLeft
+    .Range("D:D").HorizontalAlignment = xlHAlignCenter
+End With
     
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
