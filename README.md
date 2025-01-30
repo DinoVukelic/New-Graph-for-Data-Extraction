@@ -96,7 +96,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     
                     ' Only process if row 1 has text
                     If Len(machineName) > 0 Then
-                        ' Extract prefix: VIRTXEN, VDIST, VIRTPPC or 372WTB
+                        ' Extract prefix: VIRTXEN, VDIST, or VIRTPPC
                         cleanMachineName = ExtractMachineName(machineName)
                         
                         Debug.Print "  Column " & i & _
@@ -156,14 +156,14 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             '---------------------------------------------
             For Each category In machineCategories.Keys
                 If machineTimes(category).Count > 0 Then
-                    minTime = 1
+                    minTime = 999999    ' Initialize to a very high number
                     maxTime = 0
                     
                     ' Find min and max times
                     Dim idx As Long
                     For idx = 1 To machineTimes(category).Count
                         On Error Resume Next
-                        numericTime = machineTimes(category).Item(idx)
+                        numericTime = CDbl(machineTimes(category).Item(idx))  ' Explicitly convert to Double
                         If Err.Number = 0 Then
                             If numericTime < minTime Then minTime = numericTime
                             If numericTime > maxTime Then maxTime = numericTime
@@ -178,8 +178,19 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     Dim minMinutes As Long, minSeconds As Long
                     Dim maxMinutes As Long, maxSeconds As Long
                     
-                    minTotalSec = CLng(minTime * 86400) ' fraction of day -> total secs
+                    On Error Resume Next
+                    minTotalSec = CLng(minTime * 86400)
+                    If Err.Number <> 0 Then
+                        minTotalSec = 0
+                        Err.Clear
+                    End If
+                    
                     maxTotalSec = CLng(maxTime * 86400)
+                    If Err.Number <> 0 Then
+                        maxTotalSec = 0
+                        Err.Clear
+                    End If
+                    On Error GoTo 0
                     
                     minMinutes = minTotalSec \ 60       ' integer division
                     minSeconds = minTotalSec Mod 60
@@ -217,6 +228,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     '---------------------------------------------
     ' 6) Format the report
     '---------------------------------------------
+    On Error Resume Next
     With reportWs
         .Columns.AutoFit
         If reportRow > 2 Then
@@ -227,6 +239,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         .Range("B:C").HorizontalAlignment = xlHAlignLeft
         .Range("D:D").HorizontalAlignment = xlHAlignCenter
     End With
+    On Error GoTo 0
     
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
@@ -293,4 +306,3 @@ FailSafe:
     ' If we can't parse, return 0
     SafeParseTime = 0
 End Function
-
