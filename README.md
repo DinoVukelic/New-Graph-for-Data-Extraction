@@ -51,7 +51,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         .Range("A1").Value = "Machine Category"
         .Range("B1").Value = "Min Time (mm:ss)"
         .Range("C1").Value = "Max Time (mm:ss)"
-        .Range("D1").Value = "Sheet Name"
+        .Range("D1").Value = "Sheet Name (Day_Month)"
         .Range("A1:D1").Font.Bold = True
     End With
     reportRow = 2
