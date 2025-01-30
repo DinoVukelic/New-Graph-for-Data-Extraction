@@ -94,14 +94,12 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                         ' Attempt to extract the machine name prefix
                         cleanMachineName = ExtractMachineName(machineName)
                         
-                        ' Debug which column and raw machine name
                         Debug.Print "  Column " & i & _
                                     " => row1='" & machineName & _
                                     "' => Extracted='" & cleanMachineName & "'"
                         
                         ' If a recognized machine name was found
                         If Len(cleanMachineName) > 0 Then
-                            
                             ' Reset numericTime for this column
                             numericTime = 0
                             
@@ -114,17 +112,13 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                             End If
                             On Error GoTo 0
                             
-                            ' Debug the row14 cell
                             Debug.Print "    row14=[" & CStr(cellValue) & "]"
                             
                             ' Safely parse the time (returns 0 if invalid)
                             numericTime = SafeParseTime(cellValue)
                             
-                            ' If > 0, it's a valid time
                             If numericTime > 0 Then
                                 Debug.Print "    numericTime recognized: " & numericTime
-                                
-                                ' Add to the correct category
                                 For Each category In machineCategories.Keys
                                     If cleanMachineName = machineCategories(category) Then
                                         machineTimes(category).Add numericTime
@@ -152,7 +146,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     minTime = 1
                     maxTime = 0
                     
-                    ' Find min and max times in the collection
+                    ' Find min and max times
                     Dim idx As Long
                     For idx = 1 To machineTimes(category).Count
                         On Error Resume Next
@@ -164,7 +158,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                         On Error GoTo 0
                     Next idx
                     
-                    ' Write results to report
+                    ' Write to report
                     With reportWs
                         .Cells(reportRow, 1).Value = CStr(category)
                         .Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
@@ -197,21 +191,19 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
-    MsgBox "Processing complete. Check the 'Machine Times Report' sheet and the VBA Immediate Window for details."
+    MsgBox "Processing complete. Check the 'Machine Times Report' sheet and VBA Immediate Window for details."
 End Sub
 
 Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
     
-    ' Pattern allows "VIRTXEN", "VDIST", "VIRTPPC" 
-    ' plus any trailing letters, digits, or underscores.
+    ' Pattern allows "VIRTXEN", "VDIST", "VIRTPPC" plus trailing word characters.
     regex.Pattern = "^(VIRTXEN\w*|VDIST\w*|VIRTPPC\w*)"
     regex.Global = False
     regex.IgnoreCase = False
     
     If regex.Test(inputString) Then
-        ' Return entire match (e.g., "VIRTXEN6" or "VDIST305")
         ExtractMachineName = regex.Execute(inputString)(0)
     Else
         ExtractMachineName = ""
@@ -226,13 +218,21 @@ Function SafeParseTime(ByVal textValue As Variant) As Double
     
     On Error GoTo FailSafe
     
-    ' If it's already a date/time, just convert
+    ' 1) If it's already a date/time, just convert:
     If IsDate(textValue) Then
         SafeParseTime = CDbl(textValue)
         Exit Function
     End If
     
-    ' If it's a 6-digit numeric string like "002508", parse manually
+    ' 2) If it's numeric and between 0 and 1, treat it as a time fraction of a day:
+    If IsNumeric(textValue) Then
+        If textValue >= 0 And textValue < 1 Then
+            SafeParseTime = CDbl(textValue)
+            Exit Function
+        End If
+    End If
+    
+    ' 3) If it's a 6-digit numeric string like "002508", parse manually (hhmmss)
     If VarType(textValue) = vbString Then
         If Len(textValue) = 6 And IsNumeric(textValue) Then
             SafeParseTime = TimeSerial(Left(textValue, 2), Mid(textValue, 3, 2), Right(textValue, 2))
