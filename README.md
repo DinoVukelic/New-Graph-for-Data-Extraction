@@ -62,7 +62,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     For Each ws In ThisWorkbook.Sheets
         If ws.Name Like "*_BBM_Export_Timings" Then
             
-            Debug.Print "Processing sheet: " & ws.Name
+            Debug.Print vbNewLine & ">>> Processing sheet: " & ws.Name
             
             ' Create a new dictionary for times
             Set machineTimes = CreateObject("Scripting.Dictionary")
@@ -89,10 +89,17 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     End If
                     On Error GoTo 0
                     
-                    ' Process if we have a valid machine name
+                    ' Only process if we have some text in row 1
                     If Len(machineName) > 0 Then
+                        ' Attempt to extract the machine name prefix
                         cleanMachineName = ExtractMachineName(machineName)
                         
+                        ' Debug which column and raw machine name
+                        Debug.Print "  Column " & i & _
+                                    " => row1='" & machineName & _
+                                    "' => Extracted='" & cleanMachineName & "'"
+                        
+                        ' If a recognized machine name was found
                         If Len(cleanMachineName) > 0 Then
                             
                             ' Reset numericTime for this column
@@ -107,24 +114,32 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                             End If
                             On Error GoTo 0
                             
-                            ' Debug what we are about to parse
-                            Debug.Print "  Column " & i & ": machine=" & machineName & _
-                                        ", cleanMachine=" & cleanMachineName & _
-                                        ", row14=[" & CStr(cellValue) & "]"
+                            ' Debug the row14 cell
+                            Debug.Print "    row14=[" & CStr(cellValue) & "]"
                             
                             ' Safely parse the time (returns 0 if invalid)
                             numericTime = SafeParseTime(cellValue)
                             
+                            ' If > 0, it's a valid time
                             If numericTime > 0 Then
+                                Debug.Print "    numericTime recognized: " & numericTime
+                                
+                                ' Add to the correct category
                                 For Each category In machineCategories.Keys
                                     If cleanMachineName = machineCategories(category) Then
                                         machineTimes(category).Add numericTime
+                                        Debug.Print "    ==> Added to category: " & category
                                         Exit For
                                     End If
                                 Next category
+                            Else
+                                Debug.Print "    --> Time not parsed or invalid."
                             End If
-                            
+                        Else
+                            Debug.Print "    --> Machine name not recognized."
                         End If
+                    Else
+                        Debug.Print "  Column " & i & " => row1 is empty or error; skipped."
                     End If
                 End If
             Next i
@@ -137,25 +152,34 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     minTime = 1
                     maxTime = 0
                     
-                    ' Find min and max times
-                    For i = 1 To machineTimes(category).Count
+                    ' Find min and max times in the collection
+                    Dim idx As Long
+                    For idx = 1 To machineTimes(category).Count
                         On Error Resume Next
-                        numericTime = machineTimes(category).Item(i)
+                        numericTime = machineTimes(category).Item(idx)
                         If Err.Number = 0 Then
                             If numericTime < minTime Then minTime = numericTime
                             If numericTime > maxTime Then maxTime = numericTime
                         End If
                         On Error GoTo 0
-                    Next i
+                    Next idx
                     
-                    ' Write to report
+                    ' Write results to report
                     With reportWs
                         .Cells(reportRow, 1).Value = CStr(category)
                         .Cells(reportRow, 2).Value = Format(minTime, "hh:mm:ss")
                         .Cells(reportRow, 3).Value = Format(maxTime, "hh:mm:ss")
                         .Cells(reportRow, 4).Value = ws.Name
                     End With
+                    
+                    Debug.Print "==> " & ws.Name & _
+                                ", Category=" & CStr(category) & _
+                                ", Min=" & Format(minTime, "hh:mm:ss") & _
+                                ", Max=" & Format(maxTime, "hh:mm:ss")
+                    
                     reportRow = reportRow + 1
+                Else
+                    Debug.Print "==> " & ws.Name & ", Category=" & category & " => no times found."
                 End If
             Next category
         End If
@@ -173,7 +197,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
-    MsgBox "Processing complete. Check the 'Machine Times Report' sheet."
+    MsgBox "Processing complete. Check the 'Machine Times Report' sheet and the VBA Immediate Window for details."
 End Sub
 
 Function ExtractMachineName(ByVal inputString As String) As String
