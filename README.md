@@ -62,6 +62,8 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     For Each ws In ThisWorkbook.Sheets
         If ws.Name Like "*_BBM_Export_Timings" Then
             
+            Debug.Print "Processing sheet: " & ws.Name
+            
             ' Create a new dictionary for times
             Set machineTimes = CreateObject("Scripting.Dictionary")
             For Each category In machineCategories.Keys
@@ -75,6 +77,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
             For i = 8 To 69  ' 8=H, 69=BQ
                 ' Skip hidden columns
                 If Not ws.Columns(i).Hidden Then
+                    
                     ' Get machine name from row 1
                     machineName = ""
                     On Error Resume Next
@@ -92,40 +95,35 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                         
                         If Len(cleanMachineName) > 0 Then
                             
-                            '------------------------------------------------
-                            ' Reset numericTime for this column before parsing
-                            '------------------------------------------------
+                            ' Reset numericTime for this column
                             numericTime = 0
                             
                             ' Get time value from row 14
                             On Error Resume Next
                             If Not IsEmpty(ws.Cells(14, i)) Then
                                 cellValue = ws.Cells(14, i).Value
-                                
-                                ' Handle different time formats
-                                If Not IsError(cellValue) Then
-                                    If IsDate(cellValue) Then
-                                        numericTime = CDbl(cellValue)
-                                    ElseIf VarType(cellValue) = vbString Then
-                                        ' Handle "002508" as "00:25:08"
-                                        If Len(cellValue) = 6 And IsNumeric(cellValue) Then
-                                            numericTime = TimeSerial(Left(cellValue, 2), Mid(cellValue, 3, 2), Right(cellValue, 2))
-                                        ElseIf InStr(cellValue, ":") > 0 Then
-                                            numericTime = TimeValue(cellValue)
-                                        End If
-                                    End If
-                                    
-                                    If numericTime > 0 Then
-                                        For Each category In machineCategories.Keys
-                                            If cleanMachineName = machineCategories(category) Then
-                                                machineTimes(category).Add numericTime
-                                                Exit For
-                                            End If
-                                        Next category
-                                    End If
-                                End If
+                            Else
+                                cellValue = vbNullString
                             End If
                             On Error GoTo 0
+                            
+                            ' Debug what we are about to parse
+                            Debug.Print "  Column " & i & ": machine=" & machineName & _
+                                        ", cleanMachine=" & cleanMachineName & _
+                                        ", row14=[" & CStr(cellValue) & "]"
+                            
+                            ' Safely parse the time (returns 0 if invalid)
+                            numericTime = SafeParseTime(cellValue)
+                            
+                            If numericTime > 0 Then
+                                For Each category In machineCategories.Keys
+                                    If cleanMachineName = machineCategories(category) Then
+                                        machineTimes(category).Add numericTime
+                                        Exit For
+                                    End If
+                                Next category
+                            End If
+                            
                         End If
                     End If
                 End If
@@ -190,4 +188,36 @@ Function ExtractMachineName(ByVal inputString As String) As String
     Else
         ExtractMachineName = ""
     End If
+End Function
+
+'-----------------------------------
+' Safe function to parse time values
+'-----------------------------------
+Function SafeParseTime(ByVal textValue As Variant) As Double
+    Dim tmpDate As Date
+    
+    On Error GoTo FailSafe
+    
+    ' If it's already a date/time, just convert
+    If IsDate(textValue) Then
+        SafeParseTime = CDbl(textValue)
+        Exit Function
+    End If
+    
+    ' If it's a 6-digit numeric string like "002508", parse manually
+    If VarType(textValue) = vbString Then
+        If Len(textValue) = 6 And IsNumeric(textValue) Then
+            SafeParseTime = TimeSerial(Left(textValue, 2), Mid(textValue, 3, 2), Right(textValue, 2))
+            Exit Function
+        ElseIf InStr(textValue, ":") > 0 Then
+            ' If it has a colon, attempt TimeValue
+            tmpDate = TimeValue(textValue)
+            SafeParseTime = CDbl(tmpDate)
+            Exit Function
+        End If
+    End If
+
+FailSafe:
+    ' If parsing fails, or if we got here, return 0
+    SafeParseTime = 0
 End Function
