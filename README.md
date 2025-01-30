@@ -225,24 +225,44 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         End If
     Next ws
     
-    '---------------------------------------------
-    ' 6) Format the report
-    '---------------------------------------------
+'---------------------------------------------
+' 6) Format the report
+'---------------------------------------------
     On Error Resume Next
-    With reportWs
-        .Columns.AutoFit
-        If reportRow > 2 Then
-            .Range("A1:D" & reportRow - 1).Borders.LineStyle = xlContinuous
-        End If
-        
-        ' Align columns B & C to the left, and column D to center
-        .Range("B:C").HorizontalAlignment = xlHAlignLeft
-        .Range("D:D").HorizontalAlignment = xlHAlignCenter
-    End With
-    On Error GoTo 0
+    If reportWs Is Nothing Then
+        MsgBox "Error: Report worksheet not found"
+        Exit Sub
+    End If
+
+    ' Store the last used row
+    Dim lastRow As Long
+    lastRow = reportRow - 1
+
+    ' Apply formatting only if we have data
+    If lastRow >= 2 Then
+        ' AutoFit columns
+        reportWs.Columns("A:D").AutoFit
     
+        ' Add borders
+        With reportWs.Range("A1:D" & lastRow)
+            .Borders.LineStyle = xlContinuous
+        End With
+    
+        ' Set alignment
+        reportWs.Range("B:C").HorizontalAlignment = xlHAlignLeft
+        reportWs.Range("D:D").HorizontalAlignment = xlHAlignCenter
+    End If
+
+    ' Clear any errors that might have occurred
+    If Err.Number <> 0 Then
+        Debug.Print "Error during formatting: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo 0
+
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
+
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet and VBA Immediate Window for details."
 End Sub
 
