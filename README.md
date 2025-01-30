@@ -180,10 +180,14 @@ Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
     
+    ' Pattern allows "VIRTXEN", "VDIST", "VIRTPPC" 
+    ' plus any trailing letters, digits, or underscores.
+    regex.Pattern = "^(VIRTXEN\w*|VDIST\w*|VIRTPPC\w*)"
     regex.Global = False
-    regex.Pattern = "^(VIRTXEN|VDIST|VIRTPPC)"
+    regex.IgnoreCase = False
     
     If regex.Test(inputString) Then
+        ' Return entire match (e.g., "VIRTXEN6" or "VDIST305")
         ExtractMachineName = regex.Execute(inputString)(0)
     Else
         ExtractMachineName = ""
