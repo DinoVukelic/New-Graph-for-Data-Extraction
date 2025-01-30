@@ -5,7 +5,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim reportWs As Worksheet
     
     Dim machineTimes As Object      ' Dictionary: category => Collection (Double times)
-    Dim machineCategories As Object ' Dictionary: "VIRTXEN"/"VDIST"/"VIRTPPC"
+    Dim machineCategories As Object ' Dictionary: "VIRTXEN"/"VDIST"/"VIRTPPC"/"372WTB"
     
     Dim i As Long
     Dim machineName As String
@@ -31,7 +31,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     machineCategories.Add "VIRTXEN", "VIRTXEN"
     machineCategories.Add "VDIST", "VDIST"
     machineCategories.Add "VIRTPPC", "VIRTPPC"
-    
+    machineCategories.Add "372WTB", "372WTB"
     '---------------------------------------------
     ' 2) Create/clear the "Machine Times Report"
     '---------------------------------------------
@@ -91,7 +91,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                     
                     ' Only process if row 1 has text
                     If Len(machineName) > 0 Then
-                        ' Extract prefix: VIRTXEN, VDIST, or VIRTPPC
+                        ' Extract prefix: VIRTXEN, VDIST, VIRTPPC or 372WTB
                         cleanMachineName = ExtractMachineName(machineName)
                         
                         Debug.Print "  Column " & i & _
@@ -130,6 +130,9 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                                 ElseIf cleanMachineName = "VIRTPPC" Then
                                     machineTimes("VIRTPPC").Add numericTime
                                     Debug.Print "    ==> Added to category: VIRTPPC"
+                                ElseIf cleanMachineName = "372WTB" Then
+                                    machineTimes("372WTB").Add numericTime
+                                    Debug.Print "    ==> Added to category: 372WTB"
                                 End If
                             Else
                                 Debug.Print "    --> Time not parsed or invalid."
@@ -234,7 +237,7 @@ Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
     
-    regex.Pattern = "^(VIRTXEN|VDIST|VIRTPPC)"  ' match only exact prefix
+    regex.Pattern = "^(VIRTXEN|VDIST|VIRTPPC|372WTB)"  ' match only exact prefix
     regex.IgnoreCase = False
     regex.Global = False
     
@@ -285,3 +288,4 @@ FailSafe:
     ' If we can't parse, return 0
     SafeParseTime = 0
 End Function
+
