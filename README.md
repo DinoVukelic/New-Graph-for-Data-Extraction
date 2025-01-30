@@ -5,7 +5,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     Dim reportWs As Worksheet
     
     Dim machineTimes As Object      ' Dictionary: category => Collection (Double times)
-    Dim machineCategories As Object ' Dictionary: "VIRTIXEN"/"VDIST"/"VIRTPPC"
+    Dim machineCategories As Object ' Dictionary: "VIRTXEN"/"VDIST"/"VIRTPPC"
     
     Dim i As Long
     Dim machineName As String
@@ -28,7 +28,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
     ' 1) Initialize categories
     '---------------------------
     Set machineCategories = CreateObject("Scripting.Dictionary")
-    machineCategories.Add "VIRTIXEN", "VIRTIXEN"
+    machineCategories.Add "VIRTXEN", "VIRTXEN"
     machineCategories.Add "VDIST", "VDIST"
     machineCategories.Add "VIRTPPC", "VIRTPPC"
     
@@ -91,6 +91,12 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                         cleanMachineName = ExtractMachineName(machineName)
                         
                         If Len(cleanMachineName) > 0 Then
+                            
+                            '------------------------------------------------
+                            ' Reset numericTime for this column before parsing
+                            '------------------------------------------------
+                            numericTime = 0
+                            
                             ' Get time value from row 14
                             On Error Resume Next
                             If Not IsEmpty(ws.Cells(14, i)) Then
@@ -101,8 +107,10 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
                                     If IsDate(cellValue) Then
                                         numericTime = CDbl(cellValue)
                                     ElseIf VarType(cellValue) = vbString Then
-                                        ' Try to parse time string
-                                        If InStr(cellValue, ":") > 0 Then
+                                        ' Handle "002508" as "00:25:08"
+                                        If Len(cellValue) = 6 And IsNumeric(cellValue) Then
+                                            numericTime = TimeSerial(Left(cellValue, 2), Mid(cellValue, 3, 2), Right(cellValue, 2))
+                                        ElseIf InStr(cellValue, ":") > 0 Then
                                             numericTime = TimeValue(cellValue)
                                         End If
                                     End If
@@ -175,7 +183,7 @@ Function ExtractMachineName(ByVal inputString As String) As String
     Set regex = CreateObject("VBScript.RegExp")
     
     regex.Global = False
-    regex.Pattern = "^(VIRTIXEN|VDIST|VIRTPPC)"
+    regex.Pattern = "^(VIRTXEN|VDIST|VIRTPPC)"
     
     If regex.Test(inputString) Then
         ExtractMachineName = regex.Execute(inputString)(0)
