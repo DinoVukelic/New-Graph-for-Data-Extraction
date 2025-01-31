@@ -1,6 +1,6 @@
 Option Explicit
 
-Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
+Sub Machine Times Report()
 
     Dim sh As Object         ' Generic sheet object (could be chart, macro sheet, etc.)
     Dim ws As Worksheet      ' Actual worksheet reference
