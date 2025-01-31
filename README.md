@@ -254,21 +254,21 @@ End Sub
 
 '================================================
 ' Function: ExtractMachineName
-'   - Returns \"VIRTXEN\", \"VDIST\", \"VIRTPPC\", or \"372WTB\"
+'   - Returns "VIRTXEN", "VDIST", "VIRTPPC", or "372WTB"
 '   - Ignores trailing characters
 '================================================
 Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
     
-    regex.Pattern = \"^(VIRTXEN|VDIST|VIRTPPC|372WTB)\"
+    regex.Pattern = "^(VIRTXEN|VDIST|VIRTPPC|372WTB)"
     regex.IgnoreCase = False
     regex.Global = False
     
     If regex.Test(inputString) Then
         ExtractMachineName = regex.Execute(inputString)(0)
     Else
-        ExtractMachineName = \"\"
+        ExtractMachineName = ""
     End If
 End Function
 
