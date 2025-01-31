@@ -228,12 +228,7 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
 '---------------------------------------------
 ' 6) Format the report
 '---------------------------------------------
-    On Error Resume Next
-    If reportWs Is Nothing Then
-        MsgBox "Error: Report worksheet not found"
-        Exit Sub
-    End If
-
+If Not reportWs Is Nothing Then
     ' Store the last used row
     Dim lastRow As Long
     lastRow = reportRow - 1
@@ -252,16 +247,12 @@ Sub ProcessAllSheetsExcludeHiddenRowsAndColumns()
         reportWs.Range("B:C").HorizontalAlignment = xlHAlignLeft
         reportWs.Range("D:D").HorizontalAlignment = xlHAlignCenter
     End If
+Else
+    MsgBox "Error: Report worksheet not found"
+End If
 
-    ' Clear any errors that might have occurred
-    If Err.Number <> 0 Then
-        Debug.Print "Error during formatting: " & Err.Description
-        Err.Clear
-    End If
-    On Error GoTo 0
-
-    Application.Calculation = xlCalculationAutomatic
-    Application.ScreenUpdating = True
+Application.Calculation = xlCalculationAutomatic
+Application.ScreenUpdating = True
 
     MsgBox "Processing complete. Check the 'Machine Times Report' sheet and VBA Immediate Window for details."
 End Sub
