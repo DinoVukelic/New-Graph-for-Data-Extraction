@@ -299,23 +299,23 @@ Function SafeParseTime(ByVal textValue As Variant) As Double
         End If
     End If
     
-    ' 4) If it's a 6-digit numeric string \"HHMMSS\", parse via TimeSerial
-    If VarType(textValue) = vbString Then
-        Dim s As String
-        s = Trim(textValue)
-        
-        If Len(s) = 6 And IsNumeric(s) Then
-            On Error GoTo ParseFail
-            SafeParseTime = TimeSerial(Left(s, 2), Mid(s, 3, 2), Right(s, 2))
-            Exit Function
-        ElseIf InStr(s, \":\") > 0 Then
-            ' If it has a colon, interpret as \"hh:mm\" or \"hh:mm:ss\"
-            On Error GoTo ParseFail
-            tmpDate = TimeValue(s)
-            SafeParseTime = CDbl(tmpDate)
-            Exit Function
-        End If
+' 4) If it's a 6-digit numeric string "HHMMSS", parse via TimeSerial
+If VarType(textValue) = vbString Then
+    Dim s As String
+    s = Trim(textValue)
+    
+    If Len(s) = 6 And IsNumeric(s) Then
+        On Error GoTo ParseFail
+        SafeParseTime = TimeSerial(Left(s, 2), Mid(s, 3, 2), Right(s, 2))
+        Exit Function
+    ElseIf InStr(s, ":") > 0 Then
+        ' If it has a colon, interpret as "hh:mm" or "hh:mm:ss"
+        On Error GoTo ParseFail
+        tmpDate = TimeValue(s)
+        SafeParseTime = CDbl(tmpDate)
+        Exit Function
     End If
+End If
     
 ParseFail:
     ' If we can't parse, return 0
