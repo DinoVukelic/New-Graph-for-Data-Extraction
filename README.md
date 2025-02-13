@@ -6,8 +6,9 @@ Sub Machine_Times_Report()
     Dim ws As Worksheet      ' Actual worksheet reference
     Dim reportWs As Worksheet
     
-    Dim machineTimes As Object  ' Dictionary: full machine name => Collection (Double times)
+    Dim machineTimes As Object  ' Dictionary: full machine name => Collection (of numeric times)
     Dim machineCat As Object    ' Dictionary: full machine name => Machine Category
+    Dim machineTrader As Object ' Dictionary: full machine name => Dictionary (of Trader Names)
     
     Dim i As Long
     Dim machineNameFull As String
@@ -15,6 +16,7 @@ Sub Machine_Times_Report()
     Dim cellValue As Variant
     Dim numericTime As Double
     Dim category As String
+    Dim traderName As String
     
     Dim reportRow As Long
     
@@ -36,19 +38,20 @@ Sub Machine_Times_Report()
     End If
     
     ' Add headers with the new column order:
-    ' A = Machine Name, B = Machine Category, C = Min Time, D = Max Time, E = Sheet Name
+    ' A = Machine Name, B = Machine Category, C = Trader Names, D = Min Time, E = Max Time, F = Sheet Name
     With reportWs
         .Range("A1").Value = "Machine Name"
         .Range("B1").Value = "Machine Category"
-        .Range("C1").Value = "Min Time (mm:ss)"
-        .Range("D1").Value = "Max Time (mm:ss)"
-        .Range("E1").Value = "Sheet Name (Day_Month)"
-        .Range("A1:E1").Font.Bold = True
+        .Range("C1").Value = "Trader Names"
+        .Range("D1").Value = "Min Time (mm:ss)"
+        .Range("E1").Value = "Max Time (mm:ss)"
+        .Range("F1").Value = "Sheet Name (Day_Month)"
+        .Range("A1:F1").Font.Bold = True
     End With
     reportRow = 2
     
     '---------------------------------------------
-    ' 2) Loop over ALL sheets, but only process Worksheet objects
+    ' 2) Loop over ALL sheets, processing only Worksheet objects
     '---------------------------------------------
     For Each sh In ThisWorkbook.Sheets
         
@@ -57,7 +60,7 @@ Sub Machine_Times_Report()
             Set ws = sh
             
             ' Process only sheets with names matching "*_BBM_Export_Timings"
-            ' and not the excluded names
+            ' and not the excluded names.
             If (ws.Name Like "*_BBM_Export_Timings") And _
                (ws.Name <> "DD_MM_BBM_Export_Timings") And _
                (ws.Name <> "DD_MM_BBS_Export_Timings") Then
@@ -65,10 +68,12 @@ Sub Machine_Times_Report()
                 Debug.Print vbNewLine & ">>> Processing sheet: " & ws.Name
                 
                 ' Create new dictionaries for each sheet.
-                ' machineTimes: key = full machine name, value = Collection of numeric times
-                ' machineCat: key = full machine name, value = Machine Category
+                ' machineTimes: key = full machine name, value = Collection of numeric times.
+                ' machineCat: key = full machine name, value = Machine Category.
+                ' machineTrader: key = full machine name, value = Dictionary of Trader Names.
                 Set machineTimes = CreateObject("Scripting.Dictionary")
                 Set machineCat = CreateObject("Scripting.Dictionary")
+                Set machineTrader = CreateObject("Scripting.Dictionary")
                 
                 '---------------------------------------------
                 ' 3) Process visible columns H to BQ (columns 8 to 69)
@@ -76,7 +81,7 @@ Sub Machine_Times_Report()
                 For i = 8 To 69
                     ' Skip hidden columns
                     If Not ws.Columns(i).Hidden Then
-                        ' Safely read the machine name from row 1
+                        ' Read Machine Name from row 1
                         If Not IsError(ws.Cells(1, i).Value) Then
                             cellValue = ws.Cells(1, i).Value
                         Else
@@ -91,7 +96,7 @@ Sub Machine_Times_Report()
                         ' Only process if row 1 has text
                         If Len(machineNameFull) > 0 Then
                             
-                            ' Get the prefix (VIRTXEN, VDIST, VIRTPPC, or 372WTB) from the machine name
+                            ' Extract prefix: VIRTXEN, VDIST, VIRTPPC, or 372WTB from the machine name
                             machinePrefix = ExtractMachineName(machineNameFull)
                             
                             ' Determine Machine Category based on the prefix
@@ -106,12 +111,27 @@ Sub Machine_Times_Report()
                                     category = "Other"
                             End Select
                             
-                            Debug.Print "  Column " & i & " => row1='" & machineNameFull & "'; Prefix='" & machinePrefix & "'; Category='" & category & "'"
+                            ' Read Trader Name from row 4
+                            traderName = ""
+                            If Not IsError(ws.Cells(4, i).Value) Then
+                                traderName = Trim(CStr(ws.Cells(4, i).Value))
+                            End If
                             
-                            ' Initialize collection and store category if this machine name has not been processed yet
+                            Debug.Print "  Column " & i & " => row1='" & machineNameFull & "'; Prefix='" & machinePrefix & _
+                                        "'; Category='" & category & "'; Trader='" & traderName & "'"
+                            
+                            ' Initialize dictionaries for this machine if not already present
                             If Not machineTimes.Exists(machineNameFull) Then
                                 machineTimes.Add machineNameFull, New Collection
                                 machineCat.Add machineNameFull, category
+                                machineTrader.Add machineNameFull, CreateObject("Scripting.Dictionary")
+                            End If
+                            
+                            ' Record the Trader Name if provided (avoiding duplicates)
+                            If Len(traderName) > 0 Then
+                                If Not machineTrader(machineNameFull).Exists(traderName) Then
+                                    machineTrader(machineNameFull).Add traderName, traderName
+                                End If
                             End If
                             
                             ' Get time value from row 14 safely
@@ -147,6 +167,8 @@ Sub Machine_Times_Report()
                 Dim minTotalSec As Long, maxTotalSec As Long
                 Dim minMinutes As Long, minSeconds As Long
                 Dim maxMinutes As Long, maxSeconds As Long
+                Dim traderStr As String
+                Dim traderKey As Variant
                 
                 For Each key In machineTimes.Keys
                     If machineTimes(key).Count > 0 Then
@@ -161,7 +183,7 @@ Sub Machine_Times_Report()
                             If numericTime > maxTime Then maxTime = numericTime
                         Next idx
                         
-                        ' Convert fraction-of-day to total seconds, then calculate minutes and seconds
+                        ' Convert fraction-of-day to seconds, then to minutes and seconds
                         minTotalSec = CLng(minTime * 86400)
                         maxTotalSec = CLng(maxTime * 86400)
                         
@@ -170,22 +192,34 @@ Sub Machine_Times_Report()
                         maxMinutes = maxTotalSec \ 60
                         maxSeconds = maxTotalSec Mod 60
                         
+                        ' Build Trader Names string from the dictionary keys
+                        traderStr = ""
+                        For Each traderKey In machineTrader(key).Keys
+                            If traderStr = "" Then
+                                traderStr = traderKey
+                            Else
+                                traderStr = traderStr & ", " & traderKey
+                            End If
+                        Next traderKey
+                        
                         ' Write results to the report sheet:
                         ' Column A: Machine Name (full)
-                        ' Column B: Machine Category (as determined)
-                        ' Column C: Min Time (mm:ss)
-                        ' Column D: Max Time (mm:ss)
-                        ' Column E: Sheet Name
+                        ' Column B: Machine Category
+                        ' Column C: Trader Names
+                        ' Column D: Min Time (mm:ss)
+                        ' Column E: Max Time (mm:ss)
+                        ' Column F: Sheet Name
                         With reportWs
                             .Cells(reportRow, 1).Value = key
                             .Cells(reportRow, 2).Value = machineCat(key)
-                            .Cells(reportRow, 3).Value = CStr(minMinutes) & ":" & Format(minSeconds, "00")
-                            .Cells(reportRow, 4).Value = CStr(maxMinutes) & ":" & Format(maxSeconds, "00")
-                            .Cells(reportRow, 5).Value = ws.Name
+                            .Cells(reportRow, 3).Value = traderStr
+                            .Cells(reportRow, 4).Value = CStr(minMinutes) & ":" & Format(minSeconds, "00")
+                            .Cells(reportRow, 5).Value = CStr(maxMinutes) & ":" & Format(maxSeconds, "00")
+                            .Cells(reportRow, 6).Value = ws.Name
                         End With
                         
                         Debug.Print "==> " & ws.Name & ", Machine='" & key & "', Category='" & machineCat(key) & _
-                                    "', Min=" & minMinutes & ":" & Format(minSeconds, "00") & _
+                                    "', Trader(s)='" & traderStr & "', Min=" & minMinutes & ":" & Format(minSeconds, "00") & _
                                     ", Max=" & maxMinutes & ":" & Format(maxSeconds, "00")
                         
                         reportRow = reportRow + 1
@@ -195,7 +229,7 @@ Sub Machine_Times_Report()
                 Next key
                 
             End If ' End If sheet name matches
-        End If ' End If TypeName(ws) = "Worksheet"
+        End If ' End If TypeName(sh) = "Worksheet"
         
     Next sh
     
@@ -212,19 +246,19 @@ Sub Machine_Times_Report()
     
     If lastRow >= 2 Then
         ' AutoFit columns
-        reportWs.Columns("A:E").AutoFit
+        reportWs.Columns("A:F").AutoFit
         
         ' Add borders
-        With reportWs.Range("A1:E" & lastRow)
+        With reportWs.Range("A1:F" & lastRow)
             .Borders.LineStyle = xlContinuous
         End With
         
-        ' Set alignment
-        reportWs.Range("C:D").HorizontalAlignment = xlHAlignLeft
-        reportWs.Range("E:E").HorizontalAlignment = xlHAlignCenter
+        ' Set alignment for time columns and Sheet Name column
+        reportWs.Range("D:E").HorizontalAlignment = xlHAlignLeft
+        reportWs.Range("F:F").HorizontalAlignment = xlHAlignCenter
         
         ' Apply AutoFilter to the header row
-        reportWs.Range("A1:E1").AutoFilter
+        reportWs.Range("A1:F1").AutoFilter
     End If
     
 Cleanup:
