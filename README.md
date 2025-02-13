@@ -4,40 +4,25 @@ Sub Machine_Times_Report()
 
     Dim sh As Object         ' Generic sheet object (could be chart, macro sheet, etc.)
     Dim ws As Worksheet      ' Actual worksheet reference
-    
     Dim reportWs As Worksheet
     
-    Dim machineTimes As Object      ' Dictionary: category => Collection (Double times)
-    Dim machineCategories As Object ' Dictionary: "VIRTXEN"/"VDIST"/"VIRTPPC"/"372WTB"
+    Dim machineTimes As Object  ' Dictionary: full machine name => Collection (Double times)
+    Dim machineCat As Object    ' Dictionary: full machine name => Machine Category
     
     Dim i As Long
-    Dim machineName As String
-    Dim cleanMachineName As String
-    
+    Dim machineNameFull As String
+    Dim machinePrefix As String
     Dim cellValue As Variant
     Dim numericTime As Double
-    
-    Dim category As Variant
-    Dim minTime As Double
-    Dim maxTime As Double
+    Dim category As String
     
     Dim reportRow As Long
-    Dim timeCollection As Collection
     
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     
-    '---------------------------
-    ' 1) Initialize categories
-    '---------------------------
-    Set machineCategories = CreateObject("Scripting.Dictionary")
-    machineCategories.Add "VIRTXEN", "VIRTXEN"
-    machineCategories.Add "VDIST", "VDIST"
-    machineCategories.Add "VIRTPPC", "VIRTPPC"
-    machineCategories.Add "372WTB", "372WTB"
-    
     '---------------------------------------------
-    ' 2) Create/clear the "Machine Times Report"
+    ' 1) Create/clear the "Machine Times Report" sheet
     '---------------------------------------------
     On Error Resume Next
     Set reportWs = ThisWorkbook.Sheets("Machine Times Report")
@@ -50,18 +35,20 @@ Sub Machine_Times_Report()
         reportWs.Cells.Clear
     End If
     
-    ' Add headers
+    ' Add headers with the new column order:
+    ' A = Machine Name, B = Machine Category, C = Min Time, D = Max Time, E = Sheet Name
     With reportWs
-        .Range("A1").Value = "Machine Category"
-        .Range("B1").Value = "Min Time (mm:ss)"
-        .Range("C1").Value = "Max Time (mm:ss)"
-        .Range("D1").Value = "Sheet Name (Day_Month)"
-        .Range("A1:D1").Font.Bold = True
+        .Range("A1").Value = "Machine Name"
+        .Range("B1").Value = "Machine Category"
+        .Range("C1").Value = "Min Time (mm:ss)"
+        .Range("D1").Value = "Max Time (mm:ss)"
+        .Range("E1").Value = "Sheet Name (Day_Month)"
+        .Range("A1:E1").Font.Bold = True
     End With
     reportRow = 2
     
     '---------------------------------------------
-    ' 3) Loop over ALL sheets, but only process Worksheet objects
+    ' 2) Loop over ALL sheets, but only process Worksheet objects
     '---------------------------------------------
     For Each sh In ThisWorkbook.Sheets
         
@@ -69,28 +56,26 @@ Sub Machine_Times_Report()
         If TypeName(sh) = "Worksheet" Then
             Set ws = sh
             
-            ' We check that the name matches "*_BBM_Export_Timings"
-            ' AND also is NOT one of these excluded names
-            If (ws.Name Like "*_BBM_Export_Timings") _
-                And (ws.Name <> "DD_MM_BBM_Export_Timings") _
-                And (ws.Name <> "DD_MM_BBS_Export_Timings") Then
+            ' Process only sheets with names matching "*_BBM_Export_Timings"
+            ' and not the excluded names
+            If (ws.Name Like "*_BBM_Export_Timings") And _
+               (ws.Name <> "DD_MM_BBM_Export_Timings") And _
+               (ws.Name <> "DD_MM_BBS_Export_Timings") Then
                 
                 Debug.Print vbNewLine & ">>> Processing sheet: " & ws.Name
                 
-                ' Create a new dictionary for times
+                ' Create new dictionaries for each sheet.
+                ' machineTimes: key = full machine name, value = Collection of numeric times
+                ' machineCat: key = full machine name, value = Machine Category
                 Set machineTimes = CreateObject("Scripting.Dictionary")
-                For Each category In machineCategories.Keys
-                    Set timeCollection = New Collection
-                    machineTimes.Add category, timeCollection
-                Next category
+                Set machineCat = CreateObject("Scripting.Dictionary")
                 
                 '---------------------------------------------
-                ' 4) Process visible columns H to BQ (8 to 69)
+                ' 3) Process visible columns H to BQ (columns 8 to 69)
                 '---------------------------------------------
                 For i = 8 To 69
                     ' Skip hidden columns
                     If Not ws.Columns(i).Hidden Then
-                        
                         ' Safely read the machine name from row 1
                         If Not IsError(ws.Cells(1, i).Value) Then
                             cellValue = ws.Cells(1, i).Value
@@ -98,57 +83,54 @@ Sub Machine_Times_Report()
                             cellValue = vbNullString
                         End If
                         
-                        machineName = ""
+                        machineNameFull = ""
                         If Not IsEmpty(cellValue) Then
-                            machineName = Trim(CStr(cellValue))
+                            machineNameFull = Trim(CStr(cellValue))
                         End If
                         
                         ' Only process if row 1 has text
-                        If Len(machineName) > 0 Then
-                            ' Extract prefix: VIRTXEN, VDIST, VIRTPPC, or 372WTB
-                            cleanMachineName = ExtractMachineName(machineName)
+                        If Len(machineNameFull) > 0 Then
                             
-                            Debug.Print "  Column " & i & _
-                                        " => row1='" & machineName & _
-                                        "' => Extracted='" & cleanMachineName & "'"
+                            ' Get the prefix (VIRTXEN, VDIST, VIRTPPC, or 372WTB) from the machine name
+                            machinePrefix = ExtractMachineName(machineNameFull)
                             
-                            If Len(cleanMachineName) > 0 Then
-                                
-                                ' Get time value from row 14 safely
-                                If Not IsError(ws.Cells(14, i).Value) Then
-                                    cellValue = ws.Cells(14, i).Value
-                                Else
-                                    cellValue = vbNullString
-                                End If
-                                
-                                Debug.Print "    row14=[" & CStr(cellValue) & "]"
-                                
-                                ' Convert to numeric time
-                                numericTime = SafeParseTime(cellValue)
-                                
-                                If numericTime > 0 Then
-                                    Debug.Print "    numericTime recognized: " & numericTime
-                                    
-                                    ' Add to the correct category
-                                    Select Case cleanMachineName
-                                        Case "VIRTXEN"
-                                            machineTimes("VIRTXEN").Add numericTime
-                                            Debug.Print "    ==> Added to category: VIRTXEN"
-                                        Case "VDIST"
-                                            machineTimes("VDIST").Add numericTime
-                                            Debug.Print "    ==> Added to category: VDIST"
-                                        Case "VIRTPPC"
-                                            machineTimes("VIRTPPC").Add numericTime
-                                            Debug.Print "    ==> Added to category: VIRTPPC"
-                                        Case "372WTB"
-                                            machineTimes("372WTB").Add numericTime
-                                            Debug.Print "    ==> Added to category: 372WTB"
-                                    End Select
-                                Else
-                                    Debug.Print "    --> Time not parsed or invalid."
-                                End If
+                            ' Determine Machine Category based on the prefix
+                            Select Case machinePrefix
+                                Case "VIRTPPC", "VIRTXEN"
+                                    category = "Citrix"
+                                Case "VDIST"
+                                    category = "Virtual Machine"
+                                Case "372WTB"
+                                    category = "Physical Machine"
+                                Case Else
+                                    category = "Other"
+                            End Select
+                            
+                            Debug.Print "  Column " & i & " => row1='" & machineNameFull & "'; Prefix='" & machinePrefix & "'; Category='" & category & "'"
+                            
+                            ' Initialize collection and store category if this machine name has not been processed yet
+                            If Not machineTimes.Exists(machineNameFull) Then
+                                machineTimes.Add machineNameFull, New Collection
+                                machineCat.Add machineNameFull, category
+                            End If
+                            
+                            ' Get time value from row 14 safely
+                            If Not IsError(ws.Cells(14, i).Value) Then
+                                cellValue = ws.Cells(14, i).Value
                             Else
-                                Debug.Print "    --> Machine name not recognized."
+                                cellValue = vbNullString
+                            End If
+                            
+                            Debug.Print "    row14=[" & CStr(cellValue) & "]"
+                            
+                            ' Convert to numeric time
+                            numericTime = SafeParseTime(cellValue)
+                            
+                            If numericTime > 0 Then
+                                Debug.Print "    numericTime recognized: " & numericTime
+                                machineTimes(machineNameFull).Add numericTime
+                            Else
+                                Debug.Print "    --> Time not parsed or invalid."
                             End If
                         Else
                             Debug.Print "  Column " & i & " => row1 is empty or error; skipped."
@@ -157,29 +139,29 @@ Sub Machine_Times_Report()
                 Next i
                 
                 '---------------------------------------------
-                ' 5) Calculate and write min/max times in "mm:ss"
+                ' 4) Calculate and write min/max times per machine (only if times were recorded)
                 '---------------------------------------------
+                Dim key As Variant
                 Dim idx As Long
+                Dim minTime As Double, maxTime As Double
                 Dim minTotalSec As Long, maxTotalSec As Long
                 Dim minMinutes As Long, minSeconds As Long
                 Dim maxMinutes As Long, maxSeconds As Long
-                Dim categoryNameForReport As String
                 
-                For Each category In machineCategories.Keys
-                    If machineTimes(category).Count > 0 Then
+                For Each key In machineTimes.Keys
+                    If machineTimes(key).Count > 0 Then
                         minTime = 999999    ' Initialize to a very high number
                         maxTime = 0
                         
-                        ' Find min and max times
-                        For idx = 1 To machineTimes(category).Count
-                            ' Each item should be a Double
-                            numericTime = CDbl(machineTimes(category).Item(idx))
+                        ' Loop through all times for this machine to get the min and max
+                        For idx = 1 To machineTimes(key).Count
+                            numericTime = CDbl(machineTimes(key).Item(idx))
                             
                             If numericTime < minTime Then minTime = numericTime
                             If numericTime > maxTime Then maxTime = numericTime
                         Next idx
                         
-                        ' Convert fraction-of-day to total minutes/seconds
+                        ' Convert fraction-of-day to total seconds, then calculate minutes and seconds
                         minTotalSec = CLng(minTime * 86400)
                         maxTotalSec = CLng(maxTime * 86400)
                         
@@ -188,38 +170,37 @@ Sub Machine_Times_Report()
                         maxMinutes = maxTotalSec \ 60
                         maxSeconds = maxTotalSec Mod 60
                         
-                        ' Label for the report
-                        If category = "VIRTPPC" Then
-                            categoryNameForReport = "Citrix - VIRTPPC"
-                        Else
-                            categoryNameForReport = category
-                        End If
-                        
-                        ' Write to the report sheet
+                        ' Write results to the report sheet:
+                        ' Column A: Machine Name (full)
+                        ' Column B: Machine Category (as determined)
+                        ' Column C: Min Time (mm:ss)
+                        ' Column D: Max Time (mm:ss)
+                        ' Column E: Sheet Name
                         With reportWs
-                            .Cells(reportRow, 1).Value = categoryNameForReport
-                            .Cells(reportRow, 2).Value = CStr(minMinutes) & ":" & Format(minSeconds, "00")
-                            .Cells(reportRow, 3).Value = CStr(maxMinutes) & ":" & Format(maxSeconds, "00")
-                            .Cells(reportRow, 4).Value = ws.Name
+                            .Cells(reportRow, 1).Value = key
+                            .Cells(reportRow, 2).Value = machineCat(key)
+                            .Cells(reportRow, 3).Value = CStr(minMinutes) & ":" & Format(minSeconds, "00")
+                            .Cells(reportRow, 4).Value = CStr(maxMinutes) & ":" & Format(maxSeconds, "00")
+                            .Cells(reportRow, 5).Value = ws.Name
                         End With
                         
-                        Debug.Print "==> " & ws.Name & ", Category=" & category & _
-                                    ", Min=" & minMinutes & ":" & Format(minSeconds, "00") & _
+                        Debug.Print "==> " & ws.Name & ", Machine='" & key & "', Category='" & machineCat(key) & _
+                                    "', Min=" & minMinutes & ":" & Format(minSeconds, "00") & _
                                     ", Max=" & maxMinutes & ":" & Format(maxSeconds, "00")
                         
                         reportRow = reportRow + 1
                     Else
-                        Debug.Print "==> " & ws.Name & ", Category=" & category & " => no times found."
+                        Debug.Print "==> " & ws.Name & ", Machine='" & key & "' => no valid times found."
                     End If
-                Next category
+                Next key
                 
-            End If ' end of \"If ws.Name Like...\"
-        End If ' end of \"If TypeName(sh) = 'Worksheet'...\"
+            End If ' End If sheet name matches
+        End If ' End If TypeName(ws) = "Worksheet"
         
     Next sh
     
     '---------------------------------------------
-    ' 6) Format the report (only if we have rows)
+    ' 5) Format the report (only if we have rows)
     '---------------------------------------------
     If reportWs Is Nothing Then
         MsgBox "Error: Report worksheet not found"
@@ -231,16 +212,19 @@ Sub Machine_Times_Report()
     
     If lastRow >= 2 Then
         ' AutoFit columns
-        reportWs.Columns("A:D").AutoFit
+        reportWs.Columns("A:E").AutoFit
         
         ' Add borders
-        With reportWs.Range("A1:D" & lastRow)
+        With reportWs.Range("A1:E" & lastRow)
             .Borders.LineStyle = xlContinuous
         End With
         
         ' Set alignment
-        reportWs.Range("B:C").HorizontalAlignment = xlHAlignLeft
-        reportWs.Range("D:D").HorizontalAlignment = xlHAlignCenter
+        reportWs.Range("C:D").HorizontalAlignment = xlHAlignLeft
+        reportWs.Range("E:E").HorizontalAlignment = xlHAlignCenter
+        
+        ' Apply AutoFilter to the header row
+        reportWs.Range("A1:E1").AutoFilter
     End If
     
 Cleanup:
@@ -248,14 +232,14 @@ Cleanup:
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
     
-    MsgBox "Processing complete. Check the 'Machine Times Report' sheet and VBA Immediate Window for details."
+    MsgBox "Processing complete. Check the 'Machine Times Report' sheet and the VBA Immediate Window for details."
 
 End Sub
 
 '================================================
 ' Function: ExtractMachineName
-'   - Returns "VIRTXEN", "VDIST", "VIRTPPC", or "372WTB"
-'   - Ignores trailing characters
+'   - Returns "VIRTXEN", "VDIST", "VIRTPPC", or "372WTB" if found at the start.
+'   - If not, returns an empty string.
 '================================================
 Function ExtractMachineName(ByVal inputString As String) As String
     Dim regex As Object
@@ -299,23 +283,23 @@ Function SafeParseTime(ByVal textValue As Variant) As Double
         End If
     End If
     
-' 4) If it's a 6-digit numeric string "HHMMSS", parse via TimeSerial
-If VarType(textValue) = vbString Then
-    Dim s As String
-    s = Trim(textValue)
-    
-    If Len(s) = 6 And IsNumeric(s) Then
-        On Error GoTo ParseFail
-        SafeParseTime = TimeSerial(Left(s, 2), Mid(s, 3, 2), Right(s, 2))
-        Exit Function
-    ElseIf InStr(s, ":") > 0 Then
-        ' If it has a colon, interpret as "hh:mm" or "hh:mm:ss"
-        On Error GoTo ParseFail
-        tmpDate = TimeValue(s)
-        SafeParseTime = CDbl(tmpDate)
-        Exit Function
+    ' 4) If it's a 6-digit numeric string "HHMMSS", parse via TimeSerial
+    If VarType(textValue) = vbString Then
+        Dim s As String
+        s = Trim(textValue)
+        
+        If Len(s) = 6 And IsNumeric(s) Then
+            On Error GoTo ParseFail
+            SafeParseTime = TimeSerial(Left(s, 2), Mid(s, 3, 2), Right(s, 2))
+            Exit Function
+        ElseIf InStr(s, ":") > 0 Then
+            ' If it has a colon, interpret as "hh:mm" or "hh:mm:ss"
+            On Error GoTo ParseFail
+            tmpDate = TimeValue(s)
+            SafeParseTime = CDbl(tmpDate)
+            Exit Function
+        End If
     End If
-End If
     
 ParseFail:
     ' If we can't parse, return 0
